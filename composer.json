@@ -12,8 +12,7 @@
   "prefer-stable": true,
   "require": {
     "php": "^7.1",
-    "ext-json": "*",
-    "ixocreate/servicemanager-contract": "dev-develop"
+    "ext-json": "*"
   },
   "require-dev": {
     "ixocreate/coding-standard": "^1.0.1"
