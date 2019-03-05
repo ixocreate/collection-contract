@@ -50,6 +50,15 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function contains($needle): bool;
 
     /**
+     * Returns a non-lazy collection of items whose keys are the return values of $callable and values are the number of
+     * items in this collection for which the $callable returned this value.
+     *
+     * @param callable|string|int $selector
+     * @return CollectionInterface
+     */
+    public function countBy($selector): CollectionInterface;
+
+    /**
      * Returns a lazy collection of items that are in $this but are not in any of the other arguments, indexed by the
      * keys from the first collection. Note that the ...$collections are iterated non-lazily.
      *
@@ -66,29 +75,53 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function distinct(): CollectionInterface;
 
     /**
-     * Executes a callable over each collection item
+     * Returns a lazy collection in which $callable is executed for each item.
      *
-     * @param callable $callable
+     * @param callable $callable ($value, $key)
      * @return CollectionInterface
      */
     public function each(callable $callable): CollectionInterface;
 
     /**
+     * Returns true if $callable returns true for every item in this collection, false otherwise.
+     *
+     * @param callable $callable
+     * @return bool
+     */
+    public function every(callable $callable);
+
+    /**
+     * Returns a lazy collection without the items associated to any of the keys from $keys.
+     *
+     * @param array|\Traversable $keys
+     * @return CollectionInterface
+     */
+    public function except($keys): CollectionInterface;
+
+    /**
      * Extracts data from collection items.
      *
-     * @alias
      * @param callable|string|int $selector
-     * @return Collection
+     * @return CollectionInterface
      */
     public function extract($selector): CollectionInterface;
 
     /**
-     * Filter the collection by a given callable and return the result as new collection
+     * Returns a lazy collection of items for which $callable returned true.
      *
-     * @param callable $callable
+     * @param callable $callable ($value, $key)
      * @return CollectionInterface
      */
     public function filter(callable $callable): CollectionInterface;
+
+    /**
+     * Returns first value matched by $callable. If no value matches, return $default.
+     *
+     * @param callable $callable
+     * @param mixed $default
+     * @return mixed
+     */
+    public function find(callable $callable, $default = null);
 
     /**
      * Returns first item of this collection.
@@ -107,6 +140,22 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function flatten(int $depth = -1): CollectionInterface;
 
     /**
+     * Returns a lazy collection where keys and values are flipped.
+     *
+     * @return CollectionInterface
+     */
+    public function flip(): CollectionInterface;
+
+    /**
+     * Returns a collection where keys are distinct items from this collection and their values are number of
+     * occurrences of each value.
+     *
+     * @param callable|string|int|null $selector
+     * @return CollectionInterface
+     */
+    public function frequencies($selector = null): CollectionInterface;
+
+    /**
      * Returns one collection item based on a given key
      *
      * @param string|int $key
@@ -116,12 +165,12 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function get($key, $default = null);
 
     /**
-     * Returns collection which items are separated into groups indexed by the return value of $callable.
+     * Returns collection which items are separated into groups indexed by the return value of $selector.
      *
-     * @param callable $callable ($value, $key)
+     * @param callable|string|int $selector
      * @return CollectionInterface
      */
-    public function groupBy(callable $callable): CollectionInterface;
+    public function groupBy($selector): CollectionInterface;
 
     /**
      * Returns collection where items are separated into groups indexed by the value at given key.
@@ -269,6 +318,14 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
      * @return mixed
      */
     public function reduce(callable $callable, $initial = null);
+
+    /**
+     * Returns a lazy collection without elements matched by $callable.
+     *
+     * @param callable $callable
+     * @return CollectionInterface
+     */
+    public function reject(callable $callable): CollectionInterface;
 
     /**
      * Returns a collection in reverse order
