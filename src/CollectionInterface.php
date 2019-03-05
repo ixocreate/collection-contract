@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Ixocreate\Contract\Collection;
 
-use Ixocreate\Collection\Collection;
 use Ixocreate\Collection\Exception\EmptyCollection;
 
 interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
@@ -349,7 +348,7 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function shuffle(): CollectionInterface;
 
     /**
-     * Returns a sequence of collection items as collection interface specified by offset and length
+     * Returns a sequence of collection items as collection interface specified by offset and length.
      *
      * @param int $offset
      * @param int|null $length
@@ -358,12 +357,21 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function slice(int $offset, int $length = null): CollectionInterface;
 
     /**
-     * Sorts the current collection based on a given callable
+     * Returns a non-lazy collection sorted using $callable. $callable should
+     * return true if first item is larger than the second and false otherwise.
+     * Sorts by value if $callable is not set.
      *
-     * @param callable $callable
+     * @param callable|null $callable ($value1, $value2, $key1, $key2)
      * @return CollectionInterface
      */
-    public function sort(callable $callable): CollectionInterface;
+    public function sort($callable = null): CollectionInterface;
+
+    /**
+     * Returns a non-lazy collection sorted using keys.
+     *
+     * @return CollectionInterface
+     */
+    public function sortByKeys(): CollectionInterface;
 
     /**
      * Split the collection into groups and return them as a collection of collections.
