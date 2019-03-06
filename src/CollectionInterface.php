@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Ixocreate\Contract\Collection;
 
+use Ixocreate\Collection\Exception\DuplicateKey;
 use Ixocreate\Collection\Exception\EmptyCollection;
 use Ixocreate\Collection\Exception\InvalidReturnValue;
 
@@ -43,12 +44,21 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
 
     /**
      * Returns true if $value is present in the collection.
-     * Like in_array() but with $strict by default.
+     * Behaviour matches https://secure.php.net/manual/en/function.in-array.php with $strict=true
      *
      * @param mixed $needle
      * @return bool
      */
     public function contains($needle): bool;
+
+    /**
+     * Counts items to determine size of collection.
+     * Will throw DuplicateKey exception if keys have to be unique but duplicate keys exist.
+     *
+     * @throws DuplicateKey
+     * @return int
+     */
+    public function count(): int;
 
     /**
      * Returns a non-lazy collection of items whose keys are the return values of $callable and values are the number of
@@ -250,7 +260,7 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
      * @param callable|string|int|null $selector
      * @return int|float
      */
-    public function max($selector);
+    public function max($selector = null);
 
     /**
      * Returns median value of a given selector
@@ -287,23 +297,34 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function nth(int $step, $offset = 0): CollectionInterface;
 
     /**
-     * Removes and returns the last collection item
+     * Returns a lazy collection of filtered items associated to any of the keys from $keys.
      *
-     * @return mixed
-     */
-    public function pop();
-
-    /**
-     * Removes and returns all items filtered by a given callable
-     *
-     * @param callable $callable
+     * @param iterable $keys
      * @return CollectionInterface
      */
-    public function pull(callable $callable): CollectionInterface;
+    public function only(iterable $keys): CollectionInterface;
+
+    ///**
+    // * Removes and returns the last collection item
+    // *
+    // * @return mixed
+    // */
+    //public function pop();
+
+    ///**
+    // * Removes and returns an item by key/callable
+    // *
+    // * @param callable $callable
+    // * @return CollectionInterface
+    // */
+    //public function pull(callable $callable): CollectionInterface;
 
     /**
-     * Returns a lazy collection of items of this collection with $value added at/with given $key and/or as last element.
+     * Returns a lazy collection of items of this collection with $value added with given $key as last element.
      * If $key is not provided it will be next integer index.
+     * Will not overwrite items at a give key - thus may result in a DuplicateKey exception.
+     * To prevent a DuplicateKey exception re-index; i.e. by calling indexBy() or values().
+     * To make a "safe" push to a specific index by $key use put().
      * Behaviour matches https://secure.php.net/manual/en/function.array-rand.php but only allows one item to be pushed.
      * To push multiple items at once use concat()
      *
@@ -315,7 +336,8 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
 
     /**
      * Returns a lazy collection of items of this collection with $value added at/with given $key.
-     * If $key is not provided it will be next integer index.
+     * If $key is not provided it will be next integer index and added at the end.
+     * Will not cause a DuplicateKey exception by overwriting items at a given key - push() does not do that.
      *
      * @param mixed $value
      * @param string|int $key
@@ -336,13 +358,14 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
      * Reduces the collection to single value by iterating over the collection and calling $callable while
      * passing $initial and current key/item as parameters. The output of $callable is used as $initial in
      * next iteration. The output of $callable on last element is the return value of this function.
-     * Behaviour matches https://secure.php.net/manual/en/function.array-reduce.php
+     * Behaviour matches https://secure.php.net/manual/en/function.array-reduce.php but requires an initial value.
+     * See the following for why https://secure.php.net/manual/en/function.array-reduce.php#97413
      *
      * @param callable $callable ($carry, $value, $key)
      * @param mixed $initial
      * @return mixed
      */
-    public function reduce(callable $callable, $initial = null);
+    public function reduce(callable $callable, $initial);
 
     /**
      * Returns a lazy collection without elements matched by $callable.
@@ -360,12 +383,12 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
      */
     public function reverse(): CollectionInterface;
 
-    /**
-     * Removes and returns the first collection item
-     *
-     * @return mixed
-     */
-    public function shift();
+    ///**
+    // * Removes and returns the first collection item
+    // *
+    // * @return mixed
+    // */
+    //public function shift();
 
     /**
      * Shuffles and returns collection items
@@ -375,10 +398,12 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function shuffle(): CollectionInterface;
 
     /**
-     * Returns a sequence of collection items as collection interface specified by offset and length.
+     * Returns lazy collection items of which are part of the original collection from item number $from to item
+     * number $to. The items before $from are also iterated over, just not returned.
+     * Behaves like https://secure.php.net/manual/en/function.array-slice.php with $preserve_keys=true
      *
      * @param int $offset
-     * @param int|null $length
+     * @param int $length If omitted, will slice until end
      * @return CollectionInterface
      */
     public function slice(int $offset, int $length = null): CollectionInterface;
@@ -451,8 +476,9 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     /**
      * Converts collection to array. If there are multiple items with the same key, only the last will be preserved.
      * To make sure all items are returned when duplicate keys are present call values() before calling toArray().
-     * By setting expectUniqueKeys(true) a DuplicateKey exception would be thrown in case there are any dupes.
+     * Will throw DuplicateKey exception if keys have to be unique but duplicate keys exist.
      *
+     * @throws DuplicateKey
      * @return array
      */
     public function toArray(): array;
@@ -475,8 +501,9 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function transpose(): CollectionInterface;
 
     /**
-     * Returns a lazy collection of items of this collection with $value added at/with give $key and/or as first element.
-     * If $key is not provided it will be next integer index.
+     * Returns a lazy collection of items of this collection with $value added with given $key as first element.
+     * If $key is not provided it will be 0.
+     * To prevent a DuplicateKey exception re-index; i.e. by calling indexBy() or values().
      *
      * @param mixed $value
      * @param mixed $key
@@ -485,18 +512,10 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function unshift($value, $key = null): CollectionInterface;
 
     /**
-     * Returns a lazy collection of values (i.e. the keys are reset).
+     * Returns a lazy collection of values; resetting keys.
+     * Useful for preventing a DuplicateKey exception to be thrown in case there are duplicate keys.
      *
      * @return CollectionInterface
      */
     public function values(): CollectionInterface;
-
-    /**
-     * Returns a lazy collection of non-lazy collections of items from nth position from this collection and each
-     * item of $values. Stops when $values doesn't have an item at the nth position.
-     *
-     * @param iterable $values
-     * @return CollectionInterface
-     */
-    public function zip(iterable $values): CollectionInterface;
 }
