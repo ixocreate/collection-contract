@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Ixocreate\Contract\Collection;
 
 use Ixocreate\Collection\Exception\EmptyCollection;
+use Ixocreate\Collection\Exception\InvalidReturnValue;
 
 interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
 {
@@ -32,12 +33,13 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function chunk(int $size, bool $preserveKeys = true): CollectionInterface;
 
     /**
-     * Returns a lazy collection with items from all $collections passed as argument appended together
+     * Returns a lazy collection with items from all $pushItems pushed.
+     * Resets all keys to make sure everything gets added.
      *
-     * @param array|\Traversable ...$collections
+     * @param iterable $pushItems
      * @return CollectionInterface
      */
-    public function concat(...$collections): CollectionInterface;
+    public function concat(iterable $pushItems): CollectionInterface;
 
     /**
      * Returns true if $value is present in the collection.
@@ -59,12 +61,12 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
 
     /**
      * Returns a lazy collection of items that are in $this but are not in any of the other arguments, indexed by the
-     * keys from the first collection. Note that the ...$collections are iterated non-lazily.
+     * keys from the first collection. Note that collections are iterated non-lazily.
      *
-     * @param array|\Traversable ...$collections
+     * @param iterable $compare
      * @return CollectionInterface
      */
-    public function diff(...$collections): CollectionInterface;
+    public function diff(iterable $compare): CollectionInterface;
 
     /**
      * Returns a lazy collection of distinct items. The comparison is the same as in in_array.
@@ -92,10 +94,10 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     /**
      * Returns a lazy collection without the items associated to any of the keys from $keys.
      *
-     * @param array|\Traversable $keys
+     * @param iterable $keys
      * @return CollectionInterface
      */
-    public function except($keys): CollectionInterface;
+    public function except(iterable $keys): CollectionInterface;
 
     /**
      * Extracts data from collection items.
@@ -148,14 +150,15 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     /**
      * Returns a collection where keys are distinct items from this collection and their values are number of
      * occurrences of each value.
+     * Counts items by value.
      *
-     * @param callable|string|int|null $selector
      * @return CollectionInterface
      */
-    public function frequencies($selector = null): CollectionInterface;
+    public function frequencies(): CollectionInterface;
 
     /**
-     * Returns one collection item based on a given key
+     * Returns value at the key $key. If multiple values have this key, return first.
+     * If no value has this key, return $default.
      *
      * @param string|int $key
      * @param mixed $default
@@ -170,14 +173,6 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
      * @return CollectionInterface
      */
     public function groupBy($selector): CollectionInterface;
-
-    /**
-     * Returns collection where items are separated into groups indexed by the value at given key.
-     *
-     * @param string|int $key
-     * @return CollectionInterface
-     */
-    public function groupByKey($key): CollectionInterface;
 
     /**
      * Checks for the existence of an item with $key in this collection.
@@ -205,30 +200,37 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function indexBy($selector): CollectionInterface;
 
     /**
-     * Returns a lazy collection of items that are in $this and all the other arguments, indexed by the keys from
-     * the first collection. Note that the ...$collections are iterated non-lazily.
+     * Returns a lazy collection of items that are in this and $compare, indexed by the keys from
+     * the first collection. Note that $compare are iterated non-lazily.
      *
-     * @param array|\Traversable ...$collections
+     * @param iterable $compare
      * @return CollectionInterface
      */
-    public function intersect(...$collections): CollectionInterface;
+    public function intersect(iterable $compare): CollectionInterface;
 
     /**
-     * Checks if the current collection is empty
+     * Returns true if this collection is empty. False otherwise.
      *
      * @return bool
      */
     public function isEmpty(): bool;
 
     /**
-     * Returns all keys of the collection items
+     * Opposite of isEmpty.
+     *
+     * @return bool
+     */
+    public function isNotEmpty(): bool;
+
+    /**
+     * Returns a lazy collection of the keys of this collection.
      *
      * @return CollectionInterface
      */
     public function keys(): CollectionInterface;
 
     /**
-     * Returns last item of this collection. If the collection is empty, throws ItemNotFound.
+     * Returns last item of this collection.
      *
      * @return mixed
      */
@@ -245,26 +247,35 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     /**
      * Returns the maximum value of a given selector
      *
-     * @param callable|string|int $selector
-     * @return CollectionInterface
+     * @param callable|string|int|null $selector
+     * @return int|float
      */
-    public function max($selector): CollectionInterface;
+    public function max($selector);
 
     /**
-     * Merge another collection into the current collection and returns as new collection
+     * Returns median value of a given selector
      *
-     * @param CollectionInterface $collection
+     * @param callable|string|int|null $selector
+     * @return int|float
+     */
+    public function median($selector);
+
+    /**
+     * Merge iterable $items into the current collection and return as new collection.
+     * Behaviour matches array_merge https://secure.php.net/manual/en/function.array-merge.php
+     *
+     * @param iterable $items
      * @return CollectionInterface
      */
-    public function merge(CollectionInterface $collection): CollectionInterface;
+    public function merge(iterable $items): CollectionInterface;
 
     /**
      * Returns the minimum value of a given selector
      *
-     * @param callable|string|int $selector
-     * @return CollectionInterface
+     * @param callable|string|int|null $selector
+     * @return int|float
      */
-    public function min($selector): CollectionInterface;
+    public function min($selector);
 
     /**
      * Return a new collection of every n-th element
@@ -291,26 +302,41 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function pull(callable $callable): CollectionInterface;
 
     /**
-     * Returns a lazy collection of items of this collection with $value added as last element.
+     * Returns a lazy collection of items of this collection with $value added at/with given $key and/or as last element.
      * If $key is not provided it will be next integer index.
+     * Behaviour matches https://secure.php.net/manual/en/function.array-rand.php but only allows one item to be pushed.
+     * To push multiple items at once use concat()
      *
      * @param mixed $value
-     * @param mixed $key
+     * @param string|int|null $key
      * @return CollectionInterface
      */
     public function push($value, $key = null): CollectionInterface;
 
     /**
-     * Returns one random collection item
+     * Returns a lazy collection of items of this collection with $value added at/with given $key.
+     * If $key is not provided it will be next integer index.
      *
-     * @return mixed
+     * @param mixed $value
+     * @param string|int $key
+     * @return CollectionInterface
      */
-    public function random();
+    public function put($value, $key): CollectionInterface;
+
+    /**
+     * Returns one or many random collection items as a collection.
+     * Behaviour matches https://secure.php.net/manual/en/function.array-rand.php
+     *
+     * @param int|null $number Specifies how many random keys to return
+     * @return CollectionInterface
+     */
+    public function random(int $number = 1);
 
     /**
      * Reduces the collection to single value by iterating over the collection and calling $callable while
      * passing $initial and current key/item as parameters. The output of $callable is used as $initial in
      * next iteration. The output of $callable on last element is the return value of this function.
+     * Behaviour matches https://secure.php.net/manual/en/function.array-reduce.php
      *
      * @param callable $callable ($carry, $value, $key)
      * @param mixed $initial
@@ -327,7 +353,8 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function reject(callable $callable): CollectionInterface;
 
     /**
-     * Returns a collection in reverse order
+     * Returns a collection in reverse order.
+     * Behaviour matches https://secure.php.net/manual/en/function.array-reverse.php with $preserve_keys=true
      *
      * @return CollectionInterface
      */
@@ -357,6 +384,14 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function slice(int $offset, int $length = null): CollectionInterface;
 
     /**
+     * Returns true if $callable returns true for at least one item in this collection, false otherwise.
+     *
+     * @param callable $callable
+     * @return bool
+     */
+    public function some(callable $callable): bool;
+
+    /**
      * Returns a non-lazy collection sorted using $callable. $callable should
      * return true if first item is larger than the second and false otherwise.
      * Sorts by value if $callable is not set.
@@ -365,6 +400,12 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
      * @return CollectionInterface
      */
     public function sort($callable = null): CollectionInterface;
+
+    /**
+     * @param callable|string|int $selector
+     * @return CollectionInterface
+     */
+    public function sortBy($selector): CollectionInterface;
 
     /**
      * Returns a non-lazy collection sorted using keys.
@@ -383,12 +424,29 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function split(int $groups, bool $preserveKeys = true): CollectionInterface;
 
     /**
-     * Returns the sum of a given selector
+     * Returns a sum of all values in this collection by a given selector or its scalar values by default.
      *
      * @param callable|string|int|null $selector
      * @return int|float
      */
     public function sum($selector = null);
+
+    /**
+     * A form of slice that returns first $numberOfItems items.
+     *
+     * @param int $numberOfItems
+     * @return CollectionInterface
+     */
+    public function take($numberOfItems): CollectionInterface;
+
+    /**
+     * Returns a lazy collection of every nth item in this collection
+     *
+     * @param int $step
+     * @param mixed $offset
+     * @return CollectionInterface
+     */
+    public function takeNth($step, $offset = 0): CollectionInterface;
 
     /**
      * Converts collection to array. If there are multiple items with the same key, only the last will be preserved.
@@ -400,7 +458,24 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
     public function toArray(): array;
 
     /**
-     * Returns a lazy collection of items of this collection with $value added as first element.
+     * Uses a $transformer callable that takes a Collection and returns Collection on itself.
+     *
+     * @param callable $transformer Collection => Collection
+     * @throws InvalidReturnValue
+     * @return CollectionInterface
+     */
+    public function transform(callable $transformer): CollectionInterface;
+
+    /**
+     * Transpose each item in a collection, interchanging the row and column indexes.
+     * Can only transpose collections of collections. Otherwise an InvalidArgument is raised.
+     *
+     * @return CollectionInterface
+     */
+    public function transpose(): CollectionInterface;
+
+    /**
+     * Returns a lazy collection of items of this collection with $value added at/with give $key and/or as first element.
      * If $key is not provided it will be next integer index.
      *
      * @param mixed $value
@@ -415,4 +490,13 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
      * @return CollectionInterface
      */
     public function values(): CollectionInterface;
+
+    /**
+     * Returns a lazy collection of non-lazy collections of items from nth position from this collection and each
+     * item of $values. Stops when $values doesn't have an item at the nth position.
+     *
+     * @param iterable $values
+     * @return CollectionInterface
+     */
+    public function zip(iterable $values): CollectionInterface;
 }
