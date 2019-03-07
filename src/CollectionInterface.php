@@ -119,11 +119,12 @@ interface CollectionInterface extends \Countable, \Iterator, \JsonSerializable
 
     /**
      * Returns a lazy collection of items for which $callable returned true.
+     * If $callable is null all falsy values will be filtered out.
      *
-     * @param callable $callable ($value, $key)
+     * @param callable|null $callable ($value, $key)
      * @return CollectionInterface
      */
-    public function filter(callable $callable): CollectionInterface;
+    public function filter(callable $callable = null): CollectionInterface;
 
     /**
      * Returns first value matched by $callable. If no value matches, return $default.
